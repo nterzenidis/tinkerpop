@@ -84,7 +84,12 @@ namespace Gremlin.Net.IntegrationTest.Gherkin
                 {
                     "g_V_hasXperson_name_markoX_bothXknowsX_groupCount_byXvaluesXnameX_foldX",
                     IgnoreReason.ArrayKeysInMapNotAssertingInGherkin
-                }
+                },
+                {"g_withSideEffectXc_label_person_name_markoX_withSideEffectXm_age_19X_injectX0X_mergeVXselectXcXX_optionXonMatch_selectXmXX_option", IgnoreReason.MergeVEWithTraversalNotSupportedInTranslation},
+                {"g_withSideEffectXc_label_person_name_markoX_withSideEffectXm_age_19X_mergeVXselectXcXX_optionXonMatch_selectXmXX_option", IgnoreReason.MergeVEWithTraversalNotSupportedInTranslation},
+                {"g_withSideEffectXc_label_person_name_stephenX_withSideEffectXm_label_person_name_stephen_age_19X_injectX0X_mergeVXselectXcXX_optionXonCreate_selectXmXX_option", IgnoreReason.MergeVEWithTraversalNotSupportedInTranslation},
+                {"g_injectXlabel_person_name_marko_label_person_name_stephenX_mergeVXidentityX", IgnoreReason.MergeVEWithTraversalNotSupportedInTranslation},
+                {"g_withSideEffectXc_label_person_name_stephenX_withSideEffectXm_label_person_name_stephen_age_19X_mergeVXselectXcXX_optionXonCreate_selectXmXX_option", IgnoreReason.MergeVEWithTraversalNotSupportedInTranslation},
             };
 
         private static class Keywords
