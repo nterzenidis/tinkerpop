@@ -42,7 +42,7 @@ Feature: Step - sack()
     When iterated to list
     Then the result should be unordered
       | result |
-      | d[3.5].m |
+      | d[3.5].d |
 
   Scenario: g_withSackX0X_V_repeatXoutE_sackXsumX_byXweightX_inVX_timesX2X_sack
     Given the modern graph
@@ -53,8 +53,8 @@ Feature: Step - sack()
     When iterated to list
     Then the result should be unordered
       | result |
-      | d[2.0].m |
-      | d[1.4].m |
+      | d[2.0].d |
+      | d[1.4].d |
 
   Scenario: g_withBulkXfalseX_withSackX1_sumX_VX1X_localXoutEXknowsX_barrierXnormSackX_inVX_inXknowsX_barrier_sack
     Given the modern graph
@@ -66,7 +66,7 @@ Feature: Step - sack()
     When iterated to list
     Then the result should be unordered
       | result |
-      | d[1.0].m |
+      | d[1.0].d |
 
   Scenario: g_withBulkXfalseX_withSackX1_sumX_V_out_barrier_sack
     Given the modern graph
@@ -92,8 +92,8 @@ Feature: Step - sack()
     When iterated to list
     Then the result should be unordered
       | result |
-      | d[1.0].m |
-      | d[1.0].m |
+      | d[1.0].d |
+      | d[1.0].d |
 
   Scenario: g_withSackXBigInteger_TEN_powX1000X_assignX_V_localXoutXknowsX_barrierXnormSackXX_inXknowsX_barrier_sack
     Given an unsupported test

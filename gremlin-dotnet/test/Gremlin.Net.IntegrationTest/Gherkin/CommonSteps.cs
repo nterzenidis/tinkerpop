@@ -46,8 +46,9 @@ namespace Gremlin.Net.IntegrationTest.Gherkin
         private readonly IDictionary<string, object> _parameters = new Dictionary<string, object>();
         private ITraversal _traversal;
         private object[] _result;
-        private static readonly JsonSerializerOptions JsonDeserializingOptions = new JsonSerializerOptions
-            {PropertyNamingPolicy = JsonNamingPolicy.CamelCase};
+
+        private static readonly JsonSerializerOptions JsonDeserializingOptions =
+            new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
         
         public static ScenarioData ScenarioData { get; set; } = new ScenarioData(new GraphSON3MessageSerializer());
 
@@ -205,7 +206,22 @@ namespace Gremlin.Net.IntegrationTest.Gherkin
                         var expectedArray = expected.ToArray();
                         foreach (var resultItem in _result)
                         {
-                            Assert.Contains(resultItem, expectedArray);
+                            if (resultItem is Dictionary<object, object> resultItemDict)
+                            {
+                                var expectedArrayContainsResultDictionary = false;
+                                foreach (var expectedItem in expectedArray)
+                                {
+                                    if (expectedItem is not Dictionary<object, object> expectedItemDict) continue;
+                                    if (!expectedItemDict.DeepEqual(resultItemDict)) continue;
+                                    expectedArrayContainsResultDictionary = true;
+                                    break;
+                                }
+                                Assert.True(expectedArrayContainsResultDictionary);
+                            }
+                            else
+                            {
+                                Assert.Contains(resultItem, expectedArray);
+                            }
                         }
                         if (characterizedAs != "of")
                         {
