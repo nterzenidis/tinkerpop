@@ -48,7 +48,6 @@ import org.apache.tinkerpop.gremlin.structure.util.reference.ReferenceVertex;
 import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -229,32 +228,11 @@ public class MergeEdgeStep<S> extends FlatMapStep<S, Edge> implements Mutating<E
         return stream;
     }
 
-    /**
-     * Little helper method that will resolve {@link Direction} map keys to a {@link Vertex} which is the currency
-     * of this step. Since this step can accept a {@link Vertex} as the traverser it uses that as a default value
-     * in the case where {@link Direction} is not specified in the {@code Map}. As a result the {@code Map} value
-     * overrides the traverser. Note that if this is a start step then the traverser will contain a
-     * {@link #PLACEHOLDER_VERTEX} which is basically just a dummy to use as a marker where it will be assumed a
-     * {@code Map} argument to the step will have the necessary {@link Vertex} to allow the step to do its work. If
-     * the {@link Direction} contains something other than a {@link Vertex} it will become the {@link T#id} to a
-     * fresh {@link ReferenceVertex}.
-     */
-    protected Vertex resolveVertex(final Traverser.Admin<S> traverser, final Map<Object, Object> searchCreate,
-                                   final Direction direction) {
-        final S possibleVertex = traverser.get();
-        final Object o = searchCreate.getOrDefault(direction, possibleVertex);
-        final Vertex v = o instanceof Vertex ? (Vertex) o : new ReferenceVertex(o);
-        if (v != PLACEHOLDER_VERTEX && v instanceof Attachable) {
-            return ((Attachable<Vertex>) v)
-                    .attach(Attachable.Method.getOrCreate(this.getTraversal().getGraph().orElse(EmptyGraph.instance())));
-        } else {
-            return v;
-        }
-    }
-
     @Override
     protected Iterator<Edge> flatMap(final Traverser.Admin<S> traverser) {
         final Map<Object,Object> searchCreate = TraversalUtil.apply(traverser, searchCreateTraversal);
+
+        validateMapInput(searchCreate, false);
 
         final Vertex outV = resolveVertex(traverser, searchCreate, Direction.OUT);
         final Vertex inV = resolveVertex(traverser, searchCreate, Direction.IN);
@@ -266,6 +244,8 @@ public class MergeEdgeStep<S> extends FlatMapStep<S, Edge> implements Mutating<E
 
             // assume good input from GraphTraversal - folks might drop in a T here even though it is immutable
             final Map<String, Object> onMatchMap = TraversalUtil.apply(traverser, onMatchTraversal);
+            validateMapInput(onMatchMap, true);
+
             onMatchMap.forEach((key, value) -> {
                 // trigger callbacks for eventing - in this case, it's a EdgePropertyChangedEvent. if there's no
                 // registry/callbacks then just set the property
@@ -294,6 +274,10 @@ public class MergeEdgeStep<S> extends FlatMapStep<S, Edge> implements Mutating<E
             // by way of the traversal which will return the Map
             final boolean useOnCreate = onCreateTraversal != null;
             final Map<Object,Object> m = useOnCreate ? TraversalUtil.apply(traverser, onCreateTraversal) : searchCreate;
+
+            // searchCreate should have alredy been validated so only do it if it is overridden
+            if (useOnCreate) validateMapInput(m, false);
+
             final List<Object> keyValues = new ArrayList<>();
             String label = Edge.DEFAULT_LABEL;
 
@@ -331,6 +315,63 @@ public class MergeEdgeStep<S> extends FlatMapStep<S, Edge> implements Mutating<E
             }
 
             return IteratorUtils.of(edge);
+        }
+    }
+
+    /**
+     * Little helper method that will resolve {@link Direction} map keys to a {@link Vertex} which is the currency
+     * of this step. Since this step can accept a {@link Vertex} as the traverser it uses that as a default value
+     * in the case where {@link Direction} is not specified in the {@code Map}. As a result the {@code Map} value
+     * overrides the traverser. Note that if this is a start step then the traverser will contain a
+     * {@link #PLACEHOLDER_VERTEX} which is basically just a dummy to use as a marker where it will be assumed a
+     * {@code Map} argument to the step will have the necessary {@link Vertex} to allow the step to do its work. If
+     * the {@link Direction} contains something other than a {@link Vertex} it will become the {@link T#id} to a
+     * fresh {@link ReferenceVertex}.
+     */
+    protected Vertex resolveVertex(final Traverser.Admin<S> traverser, final Map<Object, Object> searchCreate,
+                                   final Direction direction) {
+        final S possibleVertex = traverser.get();
+        final Object o = searchCreate.getOrDefault(direction, possibleVertex);
+        final Vertex v = o instanceof Vertex ? (Vertex) o : new ReferenceVertex(o);
+        if (v != PLACEHOLDER_VERTEX && v instanceof Attachable) {
+            return ((Attachable<Vertex>) v)
+                    .attach(Attachable.Method.getOrCreate(this.getTraversal().getGraph().orElse(EmptyGraph.instance())));
+        } else {
+            return v;
+        }
+    }
+
+    /**
+     * Validates input to any {@code Map} arguments to this step. For {@link Merge#onMatch} updates cannot be applied
+     * to immutable parts of an {@link Edge} (id, label, incident vertices) so those can be ignored in the validation.
+     */
+    public static void validateMapInput(final Map<?,Object> m, final boolean ignoreTokens) {
+        if (ignoreTokens) {
+            m.entrySet().stream().filter(e -> {
+                final Object k = e.getKey();
+                return !(k instanceof String);
+            }).findFirst().map(e -> {
+                throw new IllegalArgumentException(String.format(
+                        "option(onMatch) expects keys in Map to be of String - check: %s",
+                        e.getKey().toString()));
+            });
+        } else {
+            m.entrySet().stream().filter(e -> {
+                final Object k = e.getKey();
+                return k != T.id && k != T.label && k != Direction.OUT && k != Direction.IN && !(k instanceof String);
+            }).findFirst().map(e -> {
+                throw new IllegalArgumentException(String.format(
+                        "mergeE() and option(onCreate) expects keys in Map to be of String, T.id, T.label, or any Direction except BOTH - check: %s",
+                        e.getKey().toString()));
+            });
+        }
+
+        if (!ignoreTokens) {
+            m.entrySet().stream().filter(e -> e.getKey() == T.label && !(e.getValue() instanceof String)).findFirst().map(e -> {
+                throw new IllegalArgumentException(String.format(
+                        "mergeE() expects T.label value to be of String - found: %s",
+                        e.getValue().getClass().getSimpleName()));
+            });
         }
     }
 

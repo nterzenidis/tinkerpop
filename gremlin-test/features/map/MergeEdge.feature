@@ -68,7 +68,10 @@ Feature: Step - mergeE()
   #   - mergeE(Map) specifying no label and in vertex in the match/create with option(Map)
   #   - vertices exist and there are two edges such that only one will match on the out vertex
   #   - results in updating the property on the one matched edge
-
+  # g_V_hasXperson_name_marko_X_mergeEXlabel_self_out_vadas1_in_vadas1X
+  #   - mergeE(Map) specifying label and in/out vertex in the match/create with option(Map)
+  #   - vertices exist with no edge and the match/create map overrides the marko vertex in the traverser
+  #   - results in a new edge
 
 
   Scenario: g_V_mergeEXlabel_self_weight_05X
@@ -326,3 +329,22 @@ Feature: Step - mergeE()
     And the graph should return 2 for count of "g.E()"
     And the graph should return 1 for count of "g.E().hasLabel(\"knows\").has(\"created\",\"Y\")"
     And the graph should return 1 for count of "g.E().hasLabel(\"knows\").has(\"created\",\"N\").outV().has(\"name\",\"vadas\")"
+
+  @UserSuppliedVertexIds
+  Scenario: g_V_hasXperson_name_marko_X_mergeEXlabel_self_out_vadas1_in_vadas1X
+    Given the empty graph
+    And the graph initializer of
+      """
+      g.addV("person").property(T.id, 100).property("name", "marko").
+        addV("person").property(T.id, 101).property("name", "vadas")
+      """
+    And using the parameter xx1 defined as "m[{\"t[label]\": \"self\", \"D[OUT]\":\"d[101].i\", \"D[IN]\":\"d[101].i\"}]"
+    And the traversal of
+      """
+      g.V().has("person","name","marko").mergeE(xx1)
+      """
+    When iterated to list
+    Then the result should have a count of 1
+    And the graph should return 2 for count of "g.V()"
+    And the graph should return 1 for count of "g.E()"
+    And the graph should return 2 for count of "g.E().hasLabel(\"self\").bothV().has(\"name\",\"vadas\")"

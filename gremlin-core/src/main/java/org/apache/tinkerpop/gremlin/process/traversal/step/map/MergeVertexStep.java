@@ -34,6 +34,8 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.util.event.ListCallba
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.decoration.EventStrategy;
 import org.apache.tinkerpop.gremlin.process.traversal.traverser.TraverserRequirement;
 import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalUtil;
+import org.apache.tinkerpop.gremlin.structure.Direction;
+import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.T;
@@ -203,6 +205,7 @@ public class MergeVertexStep<S> extends FlatMapStep<S, Vertex> implements Mutati
     @Override
     protected Iterator<Vertex> flatMap(final Traverser.Admin<S> traverser) {
         final Map<Object,Object> searchCreate = TraversalUtil.apply(traverser, searchCreateTraversal);
+        validateMapInput(searchCreate, false);
 
         Stream<Vertex> stream = createSearchStream(searchCreate);
         stream = stream.map(v -> {
@@ -211,6 +214,8 @@ public class MergeVertexStep<S> extends FlatMapStep<S, Vertex> implements Mutati
 
             // assume good input from GraphTraversal - folks might drop in a T here even though it is immutable
             final Map<String, Object> onMatchMap = TraversalUtil.apply(traverser, onMatchTraversal);
+            validateMapInput(onMatchMap, true);
+
             onMatchMap.forEach((key, value) -> {
                 // trigger callbacks for eventing - in this case, it's a VertexPropertyChangedEvent. if there's no
                 // registry/callbacks then just set the property
@@ -240,7 +245,12 @@ public class MergeVertexStep<S> extends FlatMapStep<S, Vertex> implements Mutati
 
             // if there is an onCreateTraversal then the search criteria is ignored for the creation as it is provided
             // by way of the traversal which will return the Map
-            final Map<Object,Object> m = null == onCreateTraversal ? searchCreate : TraversalUtil.apply(traverser, onCreateTraversal);
+            final boolean useOnCreate = onCreateTraversal != null;
+            final Map<Object,Object> m = useOnCreate ? TraversalUtil.apply(traverser, onCreateTraversal) : searchCreate;
+
+            // searchCreate should have already been validated so only do it if it is overridden
+            if (useOnCreate) validateMapInput(m, false);
+
             final List<Object> keyValues = new ArrayList<>();
             for (Map.Entry<Object, Object> entry : m.entrySet()) {
                 keyValues.add(entry.getKey());
@@ -256,6 +266,40 @@ public class MergeVertexStep<S> extends FlatMapStep<S, Vertex> implements Mutati
             }
 
             return IteratorUtils.of(vertex);
+        }
+    }
+
+    /**
+     * Validates input to any {@code Map} arguments to this step. For {@link Merge#onMatch} updates cannot be applied
+     * to immutable parts of an {@link Edge} (id, label, incident vertices) so those can be ignored in the validation.
+     */
+    public static void validateMapInput(final Map<?,Object> m, final boolean ignoreTokens) {
+        if (ignoreTokens) {
+            m.entrySet().stream().filter(e -> {
+                final Object k = e.getKey();
+                return !(k instanceof String);
+            }).findFirst().map(e -> {
+                throw new IllegalArgumentException(String.format(
+                        "option(onMatch) expects keys in Map to be of String - check: %s",
+                        e.getKey().toString()));
+            });
+        } else {
+            m.entrySet().stream().filter(e -> {
+                final Object k = e.getKey();
+                return k != T.id && k != T.label && !(k instanceof String);
+            }).findFirst().map(e -> {
+                throw new IllegalArgumentException(String.format(
+                        "mergeV() and option(onCreate) expects keys in Map to be of String, T.id, T.label - check: %s",
+                        e.getKey().toString()));
+            });
+        }
+
+        if (!ignoreTokens) {
+            m.entrySet().stream().filter(e -> e.getKey() == T.label && !(e.getValue() instanceof String)).findFirst().map(e -> {
+                throw new IllegalArgumentException(String.format(
+                        "mergeV() expects T.label value to be of String - found: %s",
+                        e.getValue().getClass().getSimpleName()));
+            });
         }
     }
 
