@@ -32,6 +32,10 @@ Feature: Step - mergeE()
   #   - mergeE(Map) specifying out/in for vertices in the match/create with no option()
   #   - vertices already exist
   #   - results in new edge
+  # g_withSideEffectXa_label_knows_out_marko_in_vadasX_mergeEXselectXaXX
+  #   - mergeE(Traversal) specifying out/in for vertices in the match/create with no option()
+  #   - vertices already exist
+  #   - results in new edge
   # g_mergeEXlabel_knows_out_marko_in_vadas_weight_05X_exists
   #   - mergeE(Map) specifying out/in for vertices in the match/create with no option()
   #   - vertices already exist as does an edge between them but the search will not match because of a missing property
@@ -72,7 +76,18 @@ Feature: Step - mergeE()
   #   - mergeE(Map) specifying label and in/out vertex in the match/create with option(Map)
   #   - vertices exist with no edge and the match/create map overrides the marko vertex in the traverser
   #   - results in a new edge
-
+  # g_withSideEffectXc_created_YX_withSideEffectXm_matchedX_mergeEXlabel_knows_out_marko_in_vadasX_optionXonCreate_selectXcXX_optionXonMatch_selectXmXX
+  #   - mergeE(Map) specifying out/in for vertices in the match/create with option(Map)
+  #   - vertices exist in the graph
+  #   - results in one new edge
+  # g_withSideEffectXc_created_YX_withSideEffectXm_matchedX_mergeEXlabel_knows_out_marko_in_vadasX_optionXonCreate_selectXcXX_optionXonMatch_selectXmXX_exists
+  #   - mergeE(Map) specifying out/in for vertices in the match/create with option(Map)
+  #   - vertices and edge already exist
+  #   - results in the existing edge getting a new property
+  # g_V_mapXmergeEXlabel_self_weight_05XX
+  #   - mergeE(Map) using the vertex of current traverser as reference - testing child traversal
+  #   - vertex already exists
+  #   - results in a self edge
 
   Scenario: g_V_mergeEXlabel_self_weight_05X
     Given the empty graph
@@ -103,6 +118,23 @@ Feature: Step - mergeE()
     And the traversal of
       """
       g.mergeE(xx1)
+      """
+    When iterated to list
+    Then the result should have a count of 1
+    And the graph should return 1 for count of "g.V().has(\"person\",\"name\",\"marko\").out(\"knows\").has(\"person\",\"name\",\"vadas\")"
+
+  @UserSuppliedVertexIds
+  Scenario: g_withSideEffectXa_label_knows_out_marko_in_vadasX_mergeEXselectXaXX
+    Given the empty graph
+    And the graph initializer of
+      """
+      g.addV("person").property(T.id, 100).property("name", "marko").
+        addV("person").property(T.id, 101).property("name", "vadas")
+      """
+    And using the parameter xx1 defined as "m[{\"t[label]\": \"knows\", \"D[OUT]\":\"v[100]\", \"D[IN]\":\"v[101]\"}]"
+    And the traversal of
+      """
+      g.withSideEffect("a",xx1).mergeE(__.select("a"))
       """
     When iterated to list
     Then the result should have a count of 1
@@ -348,3 +380,66 @@ Feature: Step - mergeE()
     And the graph should return 2 for count of "g.V()"
     And the graph should return 1 for count of "g.E()"
     And the graph should return 2 for count of "g.E().hasLabel(\"self\").bothV().has(\"name\",\"vadas\")"
+
+  @UserSuppliedVertexIds
+  Scenario: g_withSideEffectXc_created_YX_withSideEffectXm_matchedX_mergeEXlabel_knows_out_marko_in_vadasX_optionXonCreate_selectXcXX_optionXonMatch_selectXmXX_exists
+    Given the empty graph
+    And the graph initializer of
+      """
+      g.addV("person").property(T.id, 100).property("name", "marko").as("a").
+        addV("person").property(T.id, 101).property("name", "vadas").as("b").
+        addE("knows").from("a").to("b")
+      """
+    And using the parameter xx1 defined as "m[{\"t[label]\": \"knows\", \"D[OUT]\":\"v[100]\", \"D[IN]\":\"v[101]\"}]"
+    And using the parameter xx2 defined as "m[{\"t[label]\": \"knows\", \"D[OUT]\":\"v[100]\", \"D[IN]\":\"v[101]\",\"created\":\"Y\"}]"
+    And using the parameter xx3 defined as "m[{\"created\":\"N\"}]"
+    And the traversal of
+      """
+      g.withSideEffect("c",xx2).withSideEffect("m",xx3).
+        mergeE(xx1).option(Merge.onCreate,__.select("c")).option(Merge.onMatch,__.select("m"))
+      """
+    When iterated to list
+    Then the result should have a count of 1
+    And the graph should return 2 for count of "g.V()"
+    And the graph should return 0 for count of "g.E().hasLabel(\"knows\").has(\"created\",\"Y\")"
+    And the graph should return 1 for count of "g.E().hasLabel(\"knows\").has(\"created\",\"N\")"
+
+  @UserSuppliedVertexIds
+  Scenario: g_withSideEffectXc_created_YX_withSideEffectXm_matchedX_mergeEXlabel_knows_out_marko_in_vadasX_optionXonCreate_selectXcXX_optionXonMatch_selectXmXX
+    Given the empty graph
+    And the graph initializer of
+      """
+      g.addV("person").property(T.id, 100).property("name", "marko").as("a").
+        addV("person").property(T.id, 101).property("name", "vadas").as("b")
+      """
+    And using the parameter xx1 defined as "m[{\"t[label]\": \"knows\", \"D[OUT]\":\"v[100]\", \"D[IN]\":\"v[101]\"}]"
+    And using the parameter xx2 defined as "m[{\"t[label]\": \"knows\", \"D[OUT]\":\"v[100]\", \"D[IN]\":\"v[101]\",\"created\":\"Y\"}]"
+    And using the parameter xx3 defined as "m[{\"created\":\"N\"}]"
+    And the traversal of
+      """
+      g.withSideEffect("c",xx2).withSideEffect("m",xx3).
+        mergeE(xx1).option(Merge.onCreate, __.select("c")).option(Merge.onMatch, __.select("m"))
+      """
+    When iterated to list
+    Then the result should have a count of 1
+    And the graph should return 2 for count of "g.V()"
+    And the graph should return 1 for count of "g.E()"
+    And the graph should return 1 for count of "g.E().hasLabel(\"knows\").has(\"created\",\"Y\")"
+    And the graph should return 0 for count of "g.E().hasLabel(\"knows\").has(\"created\",\"N\")"
+
+  Scenario: g_V_mapXmergeEXlabel_self_weight_05XX
+    Given the empty graph
+    And the graph initializer of
+      """
+      g.addV("person").property("name", "marko").property("age", 29)
+      """
+    And using the parameter xx1 defined as "m[{\"t[label]\": \"self\", \"weight\":\"d[0.5].d\"}]"
+    And the traversal of
+      """
+      g.V().map(__.mergeE(xx1))
+      """
+    When iterated to list
+    Then the result should have a count of 1
+    And the graph should return 1 for count of "g.E()"
+    And the graph should return 1 for count of "g.V()"
+    And the graph should return 1 for count of "g.V().has(\"person\",\"name\",\"marko\").as(\"a\").outE(\"self\").has(\"weight\",0.5).inV().where(eq(\"a\"))"

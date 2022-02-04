@@ -50,17 +50,21 @@ Feature: Step - mergeV()
   #   - mergeV(Map) with no option and call to AddPropertyStep
   #   - results in updated vertex and added meta-property
   # g_injectXlabel_person_name_marko_label_person_name_stephenX_mergeVXidentityX
-  #  - mergeV(Traversal) grabbing current Map from traverser for the search criteria with no option()
-  #  - result in one found vertex and one new vertex
+  #   - mergeV(Traversal) grabbing current Map from traverser for the search criteria with no option()
+  #   - result in one found vertex and one new vertex
   # g_injectXlabel_person_name_marko_label_person_name_stephenX_mergeV
-  #  - mergeV() which assumes incoming Map on the traverser for the search criteria with no option()
-  #  - results in one found vertex and one new vertex
+  #   - mergeV() which assumes incoming Map on the traverser for the search criteria with no option()
+  #   - results in one found vertex and one new vertex
   # g_mergeVXlabel_person_name_stephenX_propertyXlist_name_steveX
-  #  - mergeV() which assumes finding vertex with list cardinality property and call AddPropertyStep
-  #  - results in updated vertex with additional list cardinality property
+  #   - mergeV() which assumes finding vertex with list cardinality property and call AddPropertyStep
+  #   - results in updated vertex with additional list cardinality property
   # g_mergeXlabel_person_name_vadasX_optionXonMatch_age_35X
-  #  - mergeV(Map) using onMatch(Map)
-  #  - results in updating two matched vertices
+  #   - mergeV(Map) using onMatch(Map)
+  #   - results in updating two matched vertices
+  # g_V_mapXmergeXlabel_person_name_joshXX
+  #   - mergeV(Map) with no option() - testing child traversal usage
+  #   - results in one new vertex and one existing vertex that was just created
+
 
   Scenario: g_mergeVXlabel_person_name_stephenX
     Given the empty graph
@@ -362,3 +366,20 @@ Feature: Step - mergeV()
     Then the result should have a count of 2
     And the graph should return 2 for count of "g.V().has(\"age\",35)"
     And the graph should return 2 for count of "g.V()"
+
+  Scenario: g_V_mapXmergeXlabel_person_name_joshXX
+    Given the empty graph
+    And the graph initializer of
+      """
+      g.addV("person").property("name", "vadas").property("age", 29).
+        addV("person").property("name", "stephen").property("age", 27)
+      """
+    And using the parameter xx1 defined as "m[{\"t[label]\": \"person\", \"name\":\"josh\"}]"
+    And the traversal of
+      """
+      g.V().map(__.mergeV(xx1))
+      """
+    When iterated to list
+    Then the result should have a count of 2
+    And the graph should return 1 for count of "g.V().has(\"person\",\"name\",\"josh\")"
+    And the graph should return 3 for count of "g.V()"
