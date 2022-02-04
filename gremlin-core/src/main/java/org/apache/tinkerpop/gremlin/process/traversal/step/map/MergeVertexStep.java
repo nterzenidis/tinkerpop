@@ -77,14 +77,27 @@ public class MergeVertexStep<S> extends FlatMapStep<S, Vertex> implements Mutati
         this.searchCreateTraversal = integrateChild(searchCreateTraversal);
     }
 
+    /**
+     * Gets the traversal that will be used to provide the {@code Map} that will be used to search for vertices.
+     * This {@code Map} also will be used as the default data set to be used to create a vertex if the search is not
+     * successful.
+     */
     public Traversal.Admin<S, Map<Object, Object>> getSearchCreateTraversal() {
         return searchCreateTraversal;
     }
 
+    /**
+     * Gets the traversal that will be used to provide the {@code Map} that will be the override to the one provided
+     * by the {@link #getSearchCreateTraversal()} for vertex creation events.
+     */
     public Traversal.Admin<S, Map<Object, Object>> getOnCreateTraversal() {
         return onCreateTraversal;
     }
 
+    /**
+     * Gets the traversal that will be used to provide the {@code Map} that will be used to modify vertices that
+     * match the search criteria of {@link #getSearchCreateTraversal()}.
+     */
     public Traversal.Admin<S, Map<String, Object>> getOnMatchTraversal() {
         return onMatchTraversal;
     }
@@ -96,6 +109,9 @@ public class MergeVertexStep<S> extends FlatMapStep<S, Vertex> implements Mutati
         return isStart;
     }
 
+    /**
+     * Determine if this is the first pass through {@link #processNextStart()}.
+     */
     public boolean isFirst() {
         return first;
     }
@@ -126,8 +142,11 @@ public class MergeVertexStep<S> extends FlatMapStep<S, Vertex> implements Mutati
 
     @Override
     public void configure(final Object... keyValues) {
-        // this is a Mutating step but property() should not be folded into this step. this exception should not
-        // end up visible to users really
+        // this is a Mutating step but property() should not be folded into this step.  The main issue here is that
+        // this method won't know what step called it - property() or with() or something else so it can't make the
+        // choice easily to throw an exception, write the keys/values to parameters, etc. It really is up to the
+        // caller to make sure it is handled properly at this point. this may best be left as a do-nothing method for
+        // now.
     }
 
     @Override
@@ -202,7 +221,10 @@ public class MergeVertexStep<S> extends FlatMapStep<S, Vertex> implements Mutati
                     final Event.VertexPropertyChangedEvent vpce = new Event.VertexPropertyChangedEvent(eventStrategy.detach(v), oldValue, value);
                     this.callbackRegistry.getCallbacks().forEach(c -> c.accept(vpce));
                 }
-                v.property(key, value);
+
+                // try to detect proper cardinality for the key according to the graph
+                final Graph graph = this.getTraversal().getGraph().get();
+                v.property(graph.features().vertex().getCardinality(key), key, value);
             });
 
             return v;
